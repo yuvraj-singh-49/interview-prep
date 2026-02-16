@@ -199,6 +199,7 @@ class Trie {
 
 ### Space-Optimized Trie (Array-based)
 
+**Python:**
 ```python
 class TrieArrayBased:
     """More memory efficient for lowercase letters only"""
@@ -224,12 +225,47 @@ class TrieArrayBased:
         return node[26] is True
 ```
 
+**JavaScript:**
+```javascript
+class TrieArrayBased {
+  // More memory efficient for lowercase letters only
+  constructor() {
+    this.root = new Array(27).fill(null); // 26 letters + isEnd flag
+  }
+
+  insert(word) {
+    let node = this.root;
+    for (const char of word) {
+      const idx = char.charCodeAt(0) - 'a'.charCodeAt(0);
+      if (node[idx] === null) {
+        node[idx] = new Array(27).fill(null);
+      }
+      node = node[idx];
+    }
+    node[26] = true; // Mark end
+  }
+
+  search(word) {
+    let node = this.root;
+    for (const char of word) {
+      const idx = char.charCodeAt(0) - 'a'.charCodeAt(0);
+      if (node[idx] === null) {
+        return false;
+      }
+      node = node[idx];
+    }
+    return node[26] === true;
+  }
+}
+```
+
 ---
 
 ## Trie Problems
 
 ### Word Search II
 
+**Python:**
 ```python
 def find_words(board, words):
     """Find all words from dictionary in the board"""
@@ -272,8 +308,64 @@ def find_words(board, words):
     return list(result)
 ```
 
+**JavaScript:**
+```javascript
+function findWords(board, words) {
+  // Find all words from dictionary in the board
+  // Build trie from words
+  const trie = new Trie();
+  for (const word of words) {
+    trie.insert(word);
+  }
+
+  const rows = board.length;
+  const cols = board[0].length;
+  const result = new Set();
+  const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+  function backtrack(r, c, node, path) {
+    const char = board[r][c];
+
+    if (!node.children.has(char)) {
+      return;
+    }
+
+    node = node.children.get(char);
+    path += char;
+
+    if (node.isEnd) {
+      result.add(path);
+      // Don't return - might have longer words
+    }
+
+    // Mark visited
+    board[r][c] = '#';
+
+    for (const [dr, dc] of directions) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] !== '#') {
+        backtrack(nr, nc, node, path);
+      }
+    }
+
+    // Restore
+    board[r][c] = char;
+  }
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      backtrack(r, c, trie.root, "");
+    }
+  }
+
+  return [...result];
+}
+```
+
 ### Design Add and Search Words
 
+**Python:**
 ```python
 class WordDictionary:
     """Support wildcard '.' in search"""
@@ -308,8 +400,56 @@ class WordDictionary:
         return dfs(self.root, 0)
 ```
 
+**JavaScript:**
+```javascript
+class WordDictionary {
+  // Support wildcard '.' in search
+  constructor() {
+    this.root = new TrieNode();
+  }
+
+  addWord(word) {
+    let node = this.root;
+    for (const char of word) {
+      if (!node.children.has(char)) {
+        node.children.set(char, new TrieNode());
+      }
+      node = node.children.get(char);
+    }
+    node.isEnd = true;
+  }
+
+  search(word) {
+    function dfs(node, index) {
+      if (index === word.length) {
+        return node.isEnd;
+      }
+
+      const char = word[index];
+
+      if (char === '.') {
+        for (const child of node.children.values()) {
+          if (dfs(child, index + 1)) {
+            return true;
+          }
+        }
+        return false;
+      } else {
+        if (!node.children.has(char)) {
+          return false;
+        }
+        return dfs(node.children.get(char), index + 1);
+      }
+    }
+
+    return dfs(this.root, 0);
+  }
+}
+```
+
 ### Autocomplete / Search Suggestions
 
+**Python:**
 ```python
 class AutocompleteSystem:
     def __init__(self, sentences, times):
@@ -362,10 +502,82 @@ class AutocompleteSystem:
         return [s[0] for s in suggestions[:3]]
 ```
 
+**JavaScript:**
+```javascript
+class AutocompleteSystem {
+  constructor(sentences, times) {
+    this.trie = {};
+    this.currentInput = "";
+
+    for (let i = 0; i < sentences.length; i++) {
+      this._insert(sentences[i], times[i]);
+    }
+  }
+
+  _insert(sentence, count) {
+    let node = this.trie;
+    for (const char of sentence) {
+      if (!(char in node)) {
+        node[char] = {};
+      }
+      node = node[char];
+    }
+    node['#'] = (node['#'] || 0) + count;
+  }
+
+  _search(prefix) {
+    // Get all sentences with prefix and their counts
+    let node = this.trie;
+    for (const char of prefix) {
+      if (!(char in node)) {
+        return [];
+      }
+      node = node[char];
+    }
+
+    // DFS to find all sentences
+    const result = [];
+    function dfs(node, path) {
+      if ('#' in node) {
+        result.push([path, node['#']]);
+      }
+      for (const [char, child] of Object.entries(node)) {
+        if (char !== '#') {
+          dfs(child, path + char);
+        }
+      }
+    }
+
+    dfs(node, prefix);
+    return result;
+  }
+
+  input(c) {
+    if (c === '#') {
+      this._insert(this.currentInput, 1);
+      this.currentInput = "";
+      return [];
+    }
+
+    this.currentInput += c;
+    const suggestions = this._search(this.currentInput);
+
+    // Sort by frequency (desc) then lexicographically
+    suggestions.sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1]; // frequency desc
+      return a[0].localeCompare(b[0]); // lexicographically
+    });
+
+    return suggestions.slice(0, 3).map(s => s[0]);
+  }
+}
+```
+
 ---
 
 ## Segment Tree
 
+**Python:**
 ```python
 class SegmentTree:
     """
@@ -417,8 +629,71 @@ class SegmentTree:
         return left_sum + right_sum
 ```
 
+**JavaScript:**
+```javascript
+class SegmentTree {
+  // Range queries and point updates in O(log n)
+  // Used for: range sum, range min/max, range GCD, etc.
+  constructor(arr) {
+    this.n = arr.length;
+    this.tree = new Array(4 * this.n).fill(0);
+    this._build(arr, 0, 0, this.n - 1);
+  }
+
+  _build(arr, node, start, end) {
+    if (start === end) {
+      this.tree[node] = arr[start];
+    } else {
+      const mid = Math.floor((start + end) / 2);
+      this._build(arr, 2 * node + 1, start, mid);
+      this._build(arr, 2 * node + 2, mid + 1, end);
+      this.tree[node] = this.tree[2 * node + 1] + this.tree[2 * node + 2];
+    }
+  }
+
+  update(idx, val) {
+    // Update arr[idx] to val - O(log n)
+    this._update(0, 0, this.n - 1, idx, val);
+  }
+
+  _update(node, start, end, idx, val) {
+    if (start === end) {
+      this.tree[node] = val;
+    } else {
+      const mid = Math.floor((start + end) / 2);
+      if (idx <= mid) {
+        this._update(2 * node + 1, start, mid, idx, val);
+      } else {
+        this._update(2 * node + 2, mid + 1, end, idx, val);
+      }
+      this.tree[node] = this.tree[2 * node + 1] + this.tree[2 * node + 2];
+    }
+  }
+
+  query(left, right) {
+    // Sum of arr[left:right+1] - O(log n)
+    return this._query(0, 0, this.n - 1, left, right);
+  }
+
+  _query(node, start, end, left, right) {
+    if (right < start || left > end) {
+      return 0; // Out of range
+    }
+    if (left <= start && end <= right) {
+      return this.tree[node]; // Fully in range
+    }
+
+    const mid = Math.floor((start + end) / 2);
+    const leftSum = this._query(2 * node + 1, start, mid, left, right);
+    const rightSum = this._query(2 * node + 2, mid + 1, end, left, right);
+    return leftSum + rightSum;
+  }
+}
+```
+
 ### Segment Tree with Lazy Propagation
 
+**Python:**
 ```python
 class SegmentTreeLazy:
     """Support range updates in O(log n)"""
@@ -465,10 +740,69 @@ class SegmentTreeLazy:
         self.tree[node] = self.tree[2*node + 1] + self.tree[2*node + 2]
 ```
 
+**JavaScript:**
+```javascript
+class SegmentTreeLazy {
+  // Support range updates in O(log n)
+  constructor(arr) {
+    this.n = arr.length;
+    this.tree = new Array(4 * this.n).fill(0);
+    this.lazy = new Array(4 * this.n).fill(0);
+    this._build(arr, 0, 0, this.n - 1);
+  }
+
+  _build(arr, node, start, end) {
+    if (start === end) {
+      this.tree[node] = arr[start];
+    } else {
+      const mid = Math.floor((start + end) / 2);
+      this._build(arr, 2 * node + 1, start, mid);
+      this._build(arr, 2 * node + 2, mid + 1, end);
+      this.tree[node] = this.tree[2 * node + 1] + this.tree[2 * node + 2];
+    }
+  }
+
+  _propagate(node, start, end) {
+    if (this.lazy[node] !== 0) {
+      this.tree[node] += this.lazy[node] * (end - start + 1);
+      if (start !== end) {
+        this.lazy[2 * node + 1] += this.lazy[node];
+        this.lazy[2 * node + 2] += this.lazy[node];
+      }
+      this.lazy[node] = 0;
+    }
+  }
+
+  rangeUpdate(left, right, val) {
+    // Add val to all elements in [left, right]
+    this._rangeUpdate(0, 0, this.n - 1, left, right, val);
+  }
+
+  _rangeUpdate(node, start, end, left, right, val) {
+    this._propagate(node, start, end);
+
+    if (right < start || left > end) {
+      return;
+    }
+    if (left <= start && end <= right) {
+      this.lazy[node] += val;
+      this._propagate(node, start, end);
+      return;
+    }
+
+    const mid = Math.floor((start + end) / 2);
+    this._rangeUpdate(2 * node + 1, start, mid, left, right, val);
+    this._rangeUpdate(2 * node + 2, mid + 1, end, left, right, val);
+    this.tree[node] = this.tree[2 * node + 1] + this.tree[2 * node + 2];
+  }
+}
+```
+
 ---
 
 ## Fenwick Tree (Binary Indexed Tree)
 
+**Python:**
 ```python
 class FenwickTree:
     """
@@ -508,8 +842,55 @@ class FenwickTree:
         return self.prefix_sum(right) - (self.prefix_sum(left - 1) if left > 0 else 0)
 ```
 
+**JavaScript:**
+```javascript
+class FenwickTree {
+  // More space efficient than segment tree
+  // Point update + prefix sum in O(log n)
+  constructor(n) {
+    this.n = n;
+    this.tree = new Array(n + 1).fill(0); // 1-indexed
+  }
+
+  static fromArray(arr) {
+    // Build from array in O(n)
+    const bit = new FenwickTree(arr.length);
+    for (let i = 0; i < arr.length; i++) {
+      bit.update(i, arr[i]);
+    }
+    return bit;
+  }
+
+  update(idx, delta) {
+    // Add delta to arr[idx] - O(log n)
+    idx += 1; // 1-indexed
+    while (idx <= this.n) {
+      this.tree[idx] += delta;
+      idx += idx & (-idx); // Add LSB
+    }
+  }
+
+  prefixSum(idx) {
+    // Sum of arr[0:idx+1] - O(log n)
+    idx += 1; // 1-indexed
+    let total = 0;
+    while (idx > 0) {
+      total += this.tree[idx];
+      idx -= idx & (-idx); // Remove LSB
+    }
+    return total;
+  }
+
+  rangeSum(left, right) {
+    // Sum of arr[left:right+1]
+    return this.prefixSum(right) - (left > 0 ? this.prefixSum(left - 1) : 0);
+  }
+}
+```
+
 ### Count Smaller Numbers After Self
 
+**Python:**
 ```python
 def count_smaller(nums):
     """Count elements smaller than each element to its right"""
@@ -529,10 +910,34 @@ def count_smaller(nums):
     return result[::-1]
 ```
 
+**JavaScript:**
+```javascript
+function countSmaller(nums) {
+  // Count elements smaller than each element to its right
+  // Coordinate compression
+  const sortedNums = [...new Set(nums)].sort((a, b) => a - b);
+  const rank = new Map();
+  sortedNums.forEach((num, i) => rank.set(num, i + 1));
+
+  const bit = new FenwickTree(sortedNums.length);
+  const result = [];
+
+  // Process from right to left
+  for (let i = nums.length - 1; i >= 0; i--) {
+    const r = rank.get(nums[i]);
+    result.push(bit.prefixSum(r - 2)); // r-1 in 0-indexed
+    bit.update(r - 1, 1);
+  }
+
+  return result.reverse();
+}
+```
+
 ---
 
 ## LRU Cache
 
+**Python:**
 ```python
 class LRUCache:
     """
@@ -606,10 +1011,108 @@ class DListNode:
         self.next = None
 ```
 
+**JavaScript:**
+```javascript
+// Using Map (maintains insertion order in ES6+)
+class LRUCache {
+  // O(1) get and put using Map
+  constructor(capacity) {
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) {
+      return -1;
+    }
+    // Move to end (most recently used)
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  put(key, value) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    this.cache.set(key, value);
+    if (this.cache.size > this.capacity) {
+      // Delete oldest (first item)
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+  }
+}
+
+// Manual implementation with doubly linked list
+class DListNode {
+  constructor(key, val) {
+    this.key = key;
+    this.val = val;
+    this.prev = null;
+    this.next = null;
+  }
+}
+
+class LRUCacheManual {
+  constructor(capacity) {
+    this.capacity = capacity;
+    this.cache = new Map();
+
+    // Dummy head and tail
+    this.head = new DListNode(0, 0);
+    this.tail = new DListNode(0, 0);
+    this.head.next = this.tail;
+    this.tail.prev = this.head;
+  }
+
+  _remove(node) {
+    const prev = node.prev;
+    const next = node.next;
+    prev.next = next;
+    next.prev = prev;
+  }
+
+  _addToHead(node) {
+    node.next = this.head.next;
+    node.prev = this.head;
+    this.head.next.prev = node;
+    this.head.next = node;
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) {
+      return -1;
+    }
+    const node = this.cache.get(key);
+    this._remove(node);
+    this._addToHead(node);
+    return node.val;
+  }
+
+  put(key, value) {
+    if (this.cache.has(key)) {
+      this._remove(this.cache.get(key));
+    }
+    const node = new DListNode(key, value);
+    this.cache.set(key, node);
+    this._addToHead(node);
+
+    if (this.cache.size > this.capacity) {
+      const lru = this.tail.prev;
+      this._remove(lru);
+      this.cache.delete(lru.key);
+    }
+  }
+}
+```
+
 ---
 
 ## LFU Cache
 
+**Python:**
 ```python
 from collections import defaultdict, OrderedDict
 
@@ -658,6 +1161,79 @@ class LFUCache:
         self.key_to_freq[key] = 1
         self.freq_to_keys[1][key] = None
         self.min_freq = 1
+```
+
+**JavaScript:**
+```javascript
+class LFUCache {
+  // Least Frequently Used Cache - O(1) operations
+  constructor(capacity) {
+    this.capacity = capacity;
+    this.minFreq = 0;
+    this.keyToVal = new Map();
+    this.keyToFreq = new Map();
+    this.freqToKeys = new Map(); // freq -> Map (used as OrderedDict)
+  }
+
+  _updateFreq(key) {
+    const freq = this.keyToFreq.get(key);
+    this.freqToKeys.get(freq).delete(key);
+
+    if (this.freqToKeys.get(freq).size === 0) {
+      this.freqToKeys.delete(freq);
+      if (this.minFreq === freq) {
+        this.minFreq++;
+      }
+    }
+
+    this.keyToFreq.set(key, freq + 1);
+    if (!this.freqToKeys.has(freq + 1)) {
+      this.freqToKeys.set(freq + 1, new Map());
+    }
+    this.freqToKeys.get(freq + 1).set(key, null);
+  }
+
+  get(key) {
+    if (!this.keyToVal.has(key)) {
+      return -1;
+    }
+
+    this._updateFreq(key);
+    return this.keyToVal.get(key);
+  }
+
+  put(key, value) {
+    if (this.capacity <= 0) {
+      return;
+    }
+
+    if (this.keyToVal.has(key)) {
+      this.keyToVal.set(key, value);
+      this._updateFreq(key);
+      return;
+    }
+
+    if (this.keyToVal.size >= this.capacity) {
+      // Evict LFU (and LRU among ties)
+      const keysAtMinFreq = this.freqToKeys.get(this.minFreq);
+      const lfuKey = keysAtMinFreq.keys().next().value; // First key (LRU)
+      keysAtMinFreq.delete(lfuKey);
+      if (keysAtMinFreq.size === 0) {
+        this.freqToKeys.delete(this.minFreq);
+      }
+      this.keyToVal.delete(lfuKey);
+      this.keyToFreq.delete(lfuKey);
+    }
+
+    this.keyToVal.set(key, value);
+    this.keyToFreq.set(key, 1);
+    if (!this.freqToKeys.has(1)) {
+      this.freqToKeys.set(1, new Map());
+    }
+    this.freqToKeys.get(1).set(key, null);
+    this.minFreq = 1;
+  }
+}
 ```
 
 ---

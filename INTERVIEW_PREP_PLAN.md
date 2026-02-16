@@ -390,3 +390,6 @@ For each topic, we'll create:
 ---
 
 *Last Updated: February 2025*
+
+
+<!-- event loop for nodejs as well -->
